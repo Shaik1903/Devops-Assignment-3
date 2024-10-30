@@ -1,29 +1,70 @@
 pipeline {
-    agent any
+    agent { label 'windows' }
+
+    environment {
+        APP_NAME = 'flask-app'
+        DOCKER_IMAGE = 'flask-app:latest'
+    }
+
     stages {
-        stage('Clone Repository') {
+        stage('Checkout') {
             steps {
-                // Specify the branch you want to clone
-                git branch: 'main', url: 'https://github.com/Shaik1903/Devops-Assignment-3.git'
+                git url: 'https://github.com/Shaik1903/Devops-Assignment-3.git', branch: 'main'
             }
         }
+
         stage('Build Docker Image') {
             steps {
                 script {
-                    // Build Docker image
-                    sh 'docker build -t flask-app .'
+                    sh "docker build -t ${DOCKER_IMAGE} ."
                 }
             }
         }
-        stage('Run Docker Container') {
+
+        stage('Run Tests') {
             steps {
                 script {
-                    // Stop any running instance
-                    sh 'docker stop flask-app || true && docker rm flask-app || true'
-                    // Run the app on port 5000
-                    sh 'docker run -d -p 5000:5000 --name flask-app flask-app'
+                    try {
+                        sh "docker run -d --name ${APP_NAME} -p 5000:5000 ${DOCKER_IMAGE}"
+                        sleep time: 10, unit: 'SECONDS'
+                        sh 'curl -f http://localhost:5000'
+                        echo 'Tests passed!'
+                    } catch (Exception e) {
+                        error 'Tests failed!'
+                    } finally {
+                        sh "docker stop ${APP_NAME} || exit 0"
+                        sh "docker rm ${APP_NAME} || exit 0"
+                    }
                 }
             }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-credentials', passwordVariable: 'DOCKER_PASSWORD', usernameVariable: 'DOCKER_USERNAME')]) {
+                        sh """
+                        echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
+                        docker tag ${DOCKER_IMAGE} your-dockerhub-username/${DOCKER_IMAGE}
+                        docker push your-dockerhub-username/${DOCKER_IMAGE}
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                script {
+                    sh "docker rmi ${DOCKER_IMAGE} || exit 0"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
         }
     }
 }
