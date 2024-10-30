@@ -1,47 +1,28 @@
 pipeline {
     agent any
-
     stages {
         stage('Clone Repository') {
             steps {
-                 git branch: 'main', url: 'https://github.com/Shaik1903/Devops-Assignment-3.git'
+                git 'https://github.com/Shaik1903/Devops-Assignment-3.git'
             }
         }
-
         stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t simple-calculator-app .'
+                    // Build Docker image
+                    sh 'docker build -t flask-app .'
                 }
             }
         }
-
-        stage('Run Tests') {
+        stage('Run Docker Container') {
             steps {
                 script {
-                    sh '''
-                    docker run -d -p 5000:5000 --name calc-app simple-calculator-app
-                    sleep 5  # wait for container to start
-                    curl -X POST -d "num1=5&num2=3&operation=add" http://localhost:5000/calculate
-                    '''
+                    // Stop any running instance
+                    sh 'docker stop flask-app || true && docker rm flask-app || true'
+                    // Run the app on port 5000
+                    sh 'docker run -d -p 5000:5000 --name flask-app flask-app'
                 }
             }
-        }
-
-        stage('Clean Up') {
-            steps {
-                script {
-                    sh 'docker stop calc-app'
-                    sh 'docker rm calc-app'
-                }
-            }
-        }
-    }
-
-    post {
-        always {
-            deleteDir()
-            sh 'docker system prune -f'
         }
     }
 }
