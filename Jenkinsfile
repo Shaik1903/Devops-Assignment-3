@@ -3,7 +3,8 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git 'https://github.com/Shaik1903/Devops-Assignment-3.git'
+                // Specify the branch you want to clone
+                git branch: 'main', url: 'https://github.com/Shaik1903/Devops-Assignment-3.git'
             }
         }
         stage('Build Docker Image') {
